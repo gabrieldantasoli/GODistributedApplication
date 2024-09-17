@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"hybridp2p/networks"
 	"io/ioutil"
@@ -10,8 +11,8 @@ import (
 )
 
 type Assinatura struct {
-	sum int
-	ip  string
+	Sum int    `json:"sum"`
+	IP  string `json:"ip"`
 }
 
 // read a file from a filepath and return a slice of bytes
@@ -25,11 +26,10 @@ func readFile(filePath string) ([]byte, error) {
 }
 
 // sum all bytes of a file
-func sum(filePath string, out chan<- Assinatura, wg *sysnc.WaitGroup) {
+func sum(filePath string, out chan<- string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	data, err := readFile(filePath)
-
 	if err != nil {
 		log.Printf("Erro ao ler o arquivo %s: %v", filePath, err)
 		return
@@ -46,7 +46,15 @@ func sum(filePath string, out chan<- Assinatura, wg *sysnc.WaitGroup) {
 		log.Fatalf("Erro ao obter IP: %v", err)
 	}
 
-	out <- Assinatura{_sum, ip}
+	assinatura := Assinatura{Sum: _sum, IP: ip}
+
+	jsonData, err := json.Marshal(assinatura)
+	if err != nil {
+		log.Printf("Erro ao serializar JSON: %v", err)
+		return
+	}
+
+	out <- string(jsonData)
 }
 
 // print the totalSum for all files and the files with equal sum
@@ -58,7 +66,7 @@ func main() {
 
 	var totalSum int64
 	sums := make(map[int][]string)
-	sumsChannel := make(chan Assinatura)
+	sumsChannel := make(chan string)
 	var wg sync.WaitGroup
 
 	for _, path := range os.Args[1:] {
@@ -71,12 +79,18 @@ func main() {
 		close(sumsChannel)
 	}()
 
-	for v := range sumsChannel {
-		sums[v.sum] = append(sums[v.sum], v.ip)
-		totalSum += int64(v.sum)
+	for jsonStr := range sumsChannel {
+		var v Assinatura
+		if err := json.Unmarshal([]byte(jsonStr), &v); err != nil {
+			log.Printf("Erro ao desserializar JSON: %v", err)
+			continue
+		}
+
+		sums[v.Sum] = append(sums[v.Sum], v.IP)
+		totalSum += int64(v.Sum)
 	}
 
-	fmt.Println("Total Sum:", totalSum)
+	fmt.Println("Total Sum: ", totalSum)
 
 	for sum, files := range sums {
 		fmt.Printf("Sum %d: %v\n", sum, files)
