@@ -5,6 +5,10 @@ import (
 	"net"
 )
 
+func isValidIP(ip net.IP) bool {
+	return ip != nil && !ip.IsLoopback() && ip.To4() != nil
+}
+
 // GetLocalIP retorna o primeiro endereço IP (no formato de string) das interfaces de rede não-loopback no sistema.
 func GetLocalIP() (string, error) {
 	interfaces, err := net.Interfaces()
@@ -19,7 +23,12 @@ func GetLocalIP() (string, error) {
 		}
 
 		for _, addr := range addrs {
-			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+			ipnet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			if isValidIP(ipnet.IP) {
 				return ipnet.IP.String(), nil
 			}
 		}

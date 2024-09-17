@@ -25,24 +25,28 @@ func readFile(filePath string) ([]byte, error) {
 }
 
 // sum all bytes of a file
-func sum(filePath string, out chan Assinatura) {
-	data, _ := readFile(filePath)
-	// 	if err != nil {
-	// 		return 0, err
-	// 	}
+func sum(filePath string, out chan<- Assinatura, wg *sysnc.WaitGroup) {
+	defer wg.Done()
+
+	data, err := readFile(filePath)
+
+	if err != nil {
+		log.Printf("Erro ao ler o arquivo %s: %v", filePath, err)
+		return
+	}
 
 	_sum := 0
 	for _, b := range data {
 		_sum += int(b)
 	}
+
 	//Identifica o ip da máquina
 	ip, err := networks.GetLocalIP()
 	if err != nil {
 		log.Fatalf("Erro ao obter IP: %v", err)
 	}
 
-	assinatura := Assinatura{_sum, ip}
-	out <- assinatura
+	out <- Assinatura{_sum, ip}
 }
 
 // print the totalSum for all files and the files with equal sum
@@ -59,10 +63,7 @@ func main() {
 
 	for _, path := range os.Args[1:] {
 		wg.Add(1)
-		go func(path string) {
-			defer wg.Done()
-			sum(path, sumsChannel)
-		}(path)
+		go sum(path, sumsChannel, &wg)
 	}
 
 	go func() {
