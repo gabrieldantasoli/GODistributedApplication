@@ -1,1 +1,0 @@
-gabrija  dal jkdlajk ADAD

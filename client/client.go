@@ -9,12 +9,10 @@ import (
 	"strconv"
 )
 
-// Estrutura para consulta de hash
 type HashQuery struct {
 	Hash int `json:"hash"`
 }
 
-// Estrutura para informações de arquivo
 type FileInfo struct {
 	IP       string `json:"ip"`
 	FileName string `json:"filename"`
@@ -39,7 +37,6 @@ func main() {
 
 	switch command {
 	case "register":
-		// Envia comando de registro: register <IP> <hash1> <hash2> ...
 		if len(args) < 2 {
 			fmt.Println("Uso: ./client register <IP> <hash1> <hash2> ...")
 			return
@@ -54,7 +51,7 @@ func main() {
 			}
 			fileInfo := FileInfo{
 				IP:       ip,
-				FileName: "somefile", // Substitua por um nome de arquivo adequado
+				FileName: "somefile",
 				Hash:     hashInt,
 				Action:   "add",
 			}
@@ -62,7 +59,6 @@ func main() {
 		}
 
 	case "search":
-		// Envia comando de busca: search <hash>
 		if len(args) != 1 {
 			fmt.Println("Uso: ./client search <hash>")
 			return
@@ -80,7 +76,6 @@ func main() {
 		return
 	}
 
-	// Lê a resposta do servidor
 	response := make([]byte, 4096)
 	n, err := conn.Read(response)
 	if err != nil {
@@ -89,7 +84,6 @@ func main() {
 	fmt.Println("Resposta do servidor:", string(response[:n]))
 }
 
-// Função para enviar dados como JSON
 func sendJSON(conn net.Conn, data interface{}) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
