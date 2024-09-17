@@ -2,12 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"io/ioutil"
 	"log"
 	"net"
-	"os"
 	"strings"
 )
 
@@ -22,6 +20,8 @@ type FileInfo struct {
 func main() {
 	// Caminho da pasta a ser monitorada
 	watchDir := "./dataset"
+
+	log.Println("Cliente Iniciado...")
 
 	// Inicia o monitoramento da pasta
 	watcher, err := fsnotify.NewWatcher()
@@ -41,8 +41,7 @@ func main() {
 				// Trata diferentes tipos de eventos
 				if event.Op&fsnotify.Create == fsnotify.Create || event.Op&fsnotify.Write == fsnotify.Write {
 					handleFileEvent(event.Name, "add")
-				}
-				if event.Op&fsnotify.Remove == fsnotify.Remove {
+				} else {
 					handleFileEvent(event.Name, "delete")
 				}
 
@@ -78,9 +77,9 @@ func handleFileEvent(filePath string, action string) {
 			return
 		}
 		fileHash = hash
-	} else {
-		// Para exclusão, não precisamos do hash (a menos que já saibamos ele)
-		fileHash = 0 // Pode armazenar em cache ou não, depende da lógica.
+	} else if action == "delete" {
+		// Para exclusão, o hash não é necessário, então não calcula
+		fileHash = 0
 	}
 
 	// Prepara os dados a serem enviados ao servidor

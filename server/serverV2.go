@@ -8,10 +8,12 @@ import (
 	"sync"
 )
 
-// Estrutura de dados que o cliente enviará
+// Estrutura dos dados que o cliente enviará para adicionar ou deletar
 type FileInfo struct {
-	IP    string            `json:"ip"`
-	Files map[string]int    `json:"files"` // Mapeamento de nome do arquivo para hash (hash é um inteiro)
+	IP       string `json:"ip"`
+	FileName string `json:"filename"`
+	Hash     int    `json:"hash"`
+	Action   string `json:"action"` // Pode ser "add" ou "delete"
 }
 
 // Estrutura para consulta de hash
@@ -48,7 +50,7 @@ func handleConn(c net.Conn) {
 	defer c.Close()
 
 	// Buffer para armazenar os dados recebidos
-	var buf = make([]byte, 1024)
+	var buf = make([]byte, 4096) // Aumenta o buffer para suportar mensagens maiores
 
 	// Lê os dados enviados pelo cliente
 	n, err := c.Read(buf)
@@ -59,16 +61,18 @@ func handleConn(c net.Conn) {
 		return
 	}
 
+	// Log para depuração
+	log.Printf("Dados recebidos: %s\n", string(buf[:n]))
+
 	// Deserializa o JSON enviado pelo cliente
 	var fileInfo FileInfo
 	err = json.Unmarshal(buf[:n], &fileInfo)
-	if err == nil && len(fileInfo.Files) > 0 {
+	if err == nil && (fileInfo.Action == "add" || fileInfo.Action == "delete") {
 		// Atualiza a estrutura de dados do servidor com o IP, nome do arquivo e hash
 		updateFileMap(fileInfo)
 		_, err = c.Write([]byte("Arquivos e hashes atualizados com sucesso\n"))
 		if err != nil {
 			log.Println("Erro ao enviar resposta:", err)
-			return
 		}
 		return
 	}
@@ -79,11 +83,14 @@ func handleConn(c net.Conn) {
 	if err == nil && query.Hash != 0 {
 		// Consulta a lista de IPs que possuem o hash
 		ips := getIPsForHash(query.Hash)
-		response, _ := json.Marshal(ips)
+		response, err := json.Marshal(ips)
+		if err != nil {
+			log.Println("Erro ao serializar resposta:", err)
+			return
+		}
 		_, err = c.Write(response)
 		if err != nil {
 			log.Println("Erro ao enviar resposta:", err)
-			return
 		}
 		return
 	}
@@ -101,9 +108,16 @@ func updateFileMap(fileInfo FileInfo) {
 		fileMap[fileInfo.IP] = make(map[string]int)
 	}
 
-	// Atualiza os arquivos e hashes para o IP
-	for fileName, hash := range fileInfo.Files {
-		fileMap[fileInfo.IP][fileName] = hash
+	if fileInfo.Action == "add" {
+		// Adiciona o arquivo e hash para o IP
+		fileMap[fileInfo.IP][fileInfo.FileName] = fileInfo.Hash
+	} else if fileInfo.Action == "delete" {
+		// Remove o arquivo para o IP
+		delete(fileMap[fileInfo.IP], fileInfo.FileName)
+		// Opcional: Remover o IP se não houver mais arquivos associados a ele
+		if len(fileMap[fileInfo.IP]) == 0 {
+			delete(fileMap, fileInfo.IP)
+		}
 	}
 
 	log.Printf("Mapeamento atualizado para IP %s: %+v\n", fileInfo.IP, fileMap[fileInfo.IP])

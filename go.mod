@@ -1,5 +1,5 @@
-module hybridp2p
+module yourmodule
 
-go 1.23.1
+go 1.13
 
-require github.com/fsnotify/fsnotify v1.7.0 // indirect
+require github.com/fsnotify/fsnotify v1.4.9
