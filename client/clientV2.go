@@ -71,7 +71,7 @@ func handleFileEvent(filePath string, action string) {
 	// Se for um arquivo que está sendo criado ou modificado, calcula o hash
 	var fileHash int
 	if action == "add" {
-		hash, err := calculateFileHash(filePath)
+		hash, err := sum(filePath)
 		if err != nil {
 			log.Println("Erro ao calcular hash:", err)
 			return
@@ -95,21 +95,6 @@ func handleFileEvent(filePath string, action string) {
 	if err != nil {
 		log.Println("Erro ao enviar dados para o servidor:", err)
 	}
-}
-
-// calculateFileHash calcula a soma dos bytes de um arquivo
-func calculateFileHash(filePath string) (int, error) {
-	data, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return 0, err
-	}
-
-	sum := 0
-	for _, b := range data {
-		sum += int(b)
-	}
-
-	return sum, nil
 }
 
 // sendToServer envia os dados de hash para o servidor
