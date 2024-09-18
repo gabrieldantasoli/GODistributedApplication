@@ -1,6 +1,3 @@
-/*
- Esse arquivo monitora os arquivos da pasta dataset e, quando houver alguma modificação, atualiza o servidor com o hash do arquivo modificado;
-*/
 package main
 
 import (
@@ -24,6 +21,10 @@ func main() {
 
 	log.Println("Cliente Iniciado...")
 
+	// Enviar todos os arquivos da pasta dataset ao iniciar
+	sendInitialFiles(watchDir)
+
+	// Iniciar o watcher para monitorar mudanças na pasta
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -39,7 +40,7 @@ func main() {
 				}
 				if event.Op&fsnotify.Create == fsnotify.Create || event.Op&fsnotify.Write == fsnotify.Write {
 					handleFileEvent(event.Name, "add")
-				} else {
+				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 					handleFileEvent(event.Name, "delete")
 				}
 
@@ -58,6 +59,20 @@ func main() {
 	}
 
 	select {}
+}
+
+// Função para enviar os arquivos existentes ao iniciar
+func sendInitialFiles(dir string) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		log.Fatalf("Erro ao ler o diretório %s: %v", dir, err)
+	}
+
+	for _, file := range files {
+		if !file.IsDir() {
+			handleFileEvent(dir+"/"+file.Name(), "add")
+		}
+	}
 }
 
 func handleFileEvent(filePath string, action string) {
@@ -103,7 +118,7 @@ func calculateFileHash(filePath string) (int, error) {
 }
 
 func sendToServer(fileInfo FileInfo) error {
-	conn, err := net.Dial("tcp", "localhost:8000")
+	conn, err := net.Dial("tcp", "localhost:8000") // Mude para o IP do servidor se necessário
 	if err != nil {
 		return err
 	}
