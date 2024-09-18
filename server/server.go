@@ -1,50 +1,33 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
+	"encoding/json"
+	"io"
 	"log"
 	"net"
-	"strings"
 	"sync"
 )
 
-type FileRegistry struct {
-	Files map[string][]string // Mapeia um hash para uma lista de IPs
-	mu    sync.Mutex          // Para garantir que acessos concorrentes à tabela sejam seguros
+type FileInfo struct {
+	IP       string `json:"ip"`
+	FileName string `json:"filename"`
+	Hash     int    `json:"hash"`
+	Action   string `json:"action"`
 }
 
-func NewFileRegistry() *FileRegistry {
-	return &FileRegistry{
-		Files: make(map[string][]string),
-	}
+type HashQuery struct {
+	Hash int `json:"hash"`
 }
 
-func (r *FileRegistry) Register(ip string, hashes []string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	for _, hash := range hashes {
-		r.Files[hash] = append(r.Files[hash], ip)
-	}
-}
-
-func (r *FileRegistry) Search(hash string) []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return r.Files[hash]
-}
+var fileMap = make(map[string]map[string]int)
+var mutex sync.Mutex
 
 func main() {
-	registry := NewFileRegistry()
-
 	listener, err := net.Listen("tcp", "localhost:8000")
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Println("Servidor escutando na porta 8000...")
+	log.Println("Servidor ouvindo na porta 8000...")
 
 	for {
 		conn, err := listener.Accept()
@@ -52,50 +35,87 @@ func main() {
 			log.Print(err)
 			continue
 		}
-		go handleConn(conn, registry)
+		go handleConn(conn)
 	}
 }
 
-func handleConn(conn net.Conn, registry *FileRegistry) {
-	defer conn.Close()
-	scanner := bufio.NewScanner(conn)
+func handleConn(c net.Conn) {
+	defer c.Close()
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Fields(line)
+	var buf = make([]byte, 4096)
 
-		if len(parts) < 2 {
-			fmt.Fprintln(conn, "Comando inválido")
-			continue
+	n, err := c.Read(buf)
+	if err != nil {
+		if err != io.EOF {
+			log.Println("Erro ao ler dados:", err)
 		}
+		return
+	}
 
-		command := parts[0]
+	log.Printf("Dados recebidos: %s\n", string(buf[:n]))
 
-		switch command {
-		case "register":
-			// Formato: register <IP> <hash1> <hash2> ...
-			ip := parts[1]
-			hashes := parts[2:]
-			registry.Register(ip, hashes)
-			fmt.Fprintln(conn, "Arquivos registrados com sucesso")
+	var fileInfo FileInfo
+	err = json.Unmarshal(buf[:n], &fileInfo)
+	if err == nil && (fileInfo.Action == "add" || fileInfo.Action == "delete") {
+		updateFileMap(fileInfo)
+		_, err = c.Write([]byte("Arquivos e hashes atualizados com sucesso\n"))
+		if err != nil {
+			log.Println("Erro ao enviar resposta:", err)
+		}
+		return
+	}
 
-		case "search":
-			// Formato: search <hash>
-			hash := parts[1]
-			ips := registry.Search(hash)
-			if len(ips) > 0 {
-				// Envia todos os IPs encontrados, separados por vírgulas
-				fmt.Fprintln(conn, strings.Join(ips, ", "))
-			} else {
-				fmt.Fprintln(conn, "Nenhuma máquina encontrada para o hash")
+	var query HashQuery
+	err = json.Unmarshal(buf[:n], &query)
+	if err == nil && query.Hash != 0 {
+		ips := getIPsForHash(query.Hash)
+		response, err := json.Marshal(ips)
+		if err != nil {
+			log.Println("Erro ao serializar resposta:", err)
+			return
+		}
+		_, err = c.Write(response)
+		if err != nil {
+			log.Println("Erro ao enviar resposta:", err)
+		}
+		return
+	}
+
+	log.Println("Formato de mensagem desconhecido")
+}
+
+func updateFileMap(fileInfo FileInfo) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if _, exists := fileMap[fileInfo.IP]; !exists {
+		fileMap[fileInfo.IP] = make(map[string]int)
+	}
+
+	if fileInfo.Action == "add" {
+		fileMap[fileInfo.IP][fileInfo.FileName] = fileInfo.Hash
+	} else if fileInfo.Action == "delete" {
+		delete(fileMap[fileInfo.IP], fileInfo.FileName)
+		if len(fileMap[fileInfo.IP]) == 0 {
+			delete(fileMap, fileInfo.IP)
+		}
+	}
+
+	log.Printf("Mapeamento atualizado para IP %s: %+v\n", fileInfo.IP, fileMap[fileInfo.IP])
+}
+
+func getIPsForHash(hash int) []string {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	var ips []string
+	for ip, files := range fileMap {
+		for _, fileHash := range files {
+			if fileHash == hash {
+				ips = append(ips, ip)
+				break
 			}
-
-		default:
-			fmt.Fprintln(conn, "Comando inválido")
 		}
 	}
-
-	if err := scanner.Err(); err != nil {
-		log.Println("Erro de leitura:", err)
-	}
+	return ips
 }
