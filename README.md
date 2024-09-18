@@ -56,3 +56,10 @@ go build client.go
 <br>
 
 - Caso o cliente queira adicionar um arquivo basta ir na pasta dataset e fazer as alteraçoes desejadas.
+
+# Membros do Grupo
+| [<img src="https://avatars.githubusercontent.com/u/87813261?v=4" width="120px;" /><br /><sub><b>Felipe Gangorra</b></sub><br />121111084](https://github.com/gangorra)<br /> | [<img src="https://avatars.githubusercontent.com/u/87827786?v=4 " width="120px;"/><br /><sub><b>Wander Hank</b></sub><br />120211139](https://github.com/wanderhank)<br /> | [<img src="https://avatars.githubusercontent.com/u/96066029?v=4" width="120px;"/><br /><sub><b>Gabriel Dantas</b></sub><br />121110669](https://github.com/gabrieldantasoli)<br /> | [<img src="https://avatars.githubusercontent.com/u/96154109?v=4" width="120px;"/><br /><sub><b>Lucas Lima</b></sub><br />121110517](https://github.com/lucaslimasilvafoligem)<br /> |
+| :---: | :---: | :---: | :---: |
+
+
+
