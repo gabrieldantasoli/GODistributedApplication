@@ -37,12 +37,6 @@ func main() {
 	defer conn.Close()
 
 	switch command {
-	case "register":
-		// Código existente...
-
-	case "search":
-		// Código existente...
-
 	case "download":
 		if len(args) != 1 {
 			fmt.Println("Uso: ./client download <hash>")
@@ -56,7 +50,6 @@ func main() {
 		query := HashQuery{Hash: hashInt}
 		sendJSON(conn, query)
 
-		// Receber lista de IPs com o arquivo
 		response := make([]byte, 4096)
 		n, err := conn.Read(response)
 		if err != nil {
@@ -65,6 +58,7 @@ func main() {
 
 		var ips []string
 		err = json.Unmarshal(response[:n], &ips)
+		fmt.Printf(ips)
 		if err != nil {
 			log.Fatal("Erro ao desserializar resposta:", err)
 		}
@@ -74,7 +68,6 @@ func main() {
 			return
 		}
 
-		// Tentar baixar o arquivo do primeiro IP disponível
 		fmt.Printf("Tentando baixar o arquivo do IP: %s\n", ips[0])
 		err = downloadFileFromHost(ips[0], hashInt, "dataset/")
 		if err != nil {
@@ -89,39 +82,42 @@ func main() {
 }
 
 func sendJSON(conn net.Conn, data interface{}) {
-	// Código existente...
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Fatal("Erro ao serializar JSON:", err)
+	}
+	_, err = conn.Write(jsonData)
+	if err != nil {
+		log.Fatal("Erro ao enviar dados:", err)
+	}
 }
 
 func downloadFileFromHost(ip string, hash int, destFolder string) error {
-	conn, err := net.Dial("tcp", ip+":9000") // Porta de download (ex: 9000)
+	conn, err := net.Dial("tcp", ip+":9000")
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 	log.Printf("Arquivo %s baixado com sucesso.\n")
 
-	// Solicitar download do arquivo
 	request := HashQuery{Hash: hash}
 	err = json.NewEncoder(conn).Encode(request)
 	if err != nil {
 		return err
 	}
 
-	// Receber o nome do arquivo e tamanho
 	var fileInfo FileInfo
 	err = json.NewDecoder(conn).Decode(&fileInfo)
 	if err != nil {
 		return err
 	}
 
-	// Criar arquivo localmente
 	destFile, err := os.Create(destFolder + fileInfo.FileName)
 	if err != nil {
 		return err
 	}
 	defer destFile.Close()
 
-	// Receber dados do arquivo
 	_, err = io.Copy(destFile, conn)
 	if err != nil {
 		return err

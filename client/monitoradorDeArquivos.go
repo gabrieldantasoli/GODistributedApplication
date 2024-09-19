@@ -21,10 +21,8 @@ func main() {
 
 	log.Println("Cliente Iniciado...")
 
-	// Enviar todos os arquivos da pasta dataset ao iniciar
 	sendInitialFiles(watchDir)
 
-	// Iniciar o watcher para monitorar mudanças na pasta
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -39,7 +37,7 @@ func main() {
 					return
 				}
 				if event.Op&fsnotify.Create == fsnotify.Create || event.Op&fsnotify.Write == fsnotify.Write {
-					FileEvent(event.Name, "add")
+					handleFileEvent(event.Name, "add")
 				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 					handleFileEvent(event.Name, "delete")
 				}
@@ -61,9 +59,7 @@ func main() {
 	select {}
 }
 
-// Função para enviar os arquivos existentes ao iniciar
 func sendInitialFiles(dir string) {
-	// Usar os.ReadDir ao invés de ioutil.ReadDir
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.Fatalf("Erro ao ler o diretório %s: %v", dir, err)
@@ -105,7 +101,6 @@ func handleFileEvent(filePath string, action string) {
 }
 
 func calculateFileHash(filePath string) (int, error) {
-	// Usar os.ReadFile ao invés de ioutil.ReadFile
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return 0, err
@@ -120,7 +115,7 @@ func calculateFileHash(filePath string) (int, error) {
 }
 
 func sendToServer(fileInfo FileInfo) error {
-	conn, err := net.Dial("tcp", "localhost:8000") // Mude para o IP do servidor se necessário
+	conn, err := net.Dial("tcp", "localhost:8000")
 	if err != nil {
 		return err
 	}
