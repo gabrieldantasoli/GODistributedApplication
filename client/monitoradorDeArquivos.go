@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"github.com/fsnotify/fsnotify"
-	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"strings"
 )
 
@@ -39,7 +39,7 @@ func main() {
 					return
 				}
 				if event.Op&fsnotify.Create == fsnotify.Create || event.Op&fsnotify.Write == fsnotify.Write {
-					handleFileEvent(event.Name, "add")
+					FileEvent(event.Name, "add")
 				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 					handleFileEvent(event.Name, "delete")
 				}
@@ -63,7 +63,8 @@ func main() {
 
 // Função para enviar os arquivos existentes ao iniciar
 func sendInitialFiles(dir string) {
-	files, err := ioutil.ReadDir(dir)
+	// Usar os.ReadDir ao invés de ioutil.ReadDir
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.Fatalf("Erro ao ler o diretório %s: %v", dir, err)
 	}
@@ -104,7 +105,8 @@ func handleFileEvent(filePath string, action string) {
 }
 
 func calculateFileHash(filePath string) (int, error) {
-	data, err := ioutil.ReadFile(filePath)
+	// Usar os.ReadFile ao invés de ioutil.ReadFile
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return 0, err
 	}

@@ -24,7 +24,6 @@ var mutex sync.Mutex
 
 func main() {
 	listener, err := net.Listen("tcp", "localhost:8000")
-	
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,48 +40,45 @@ func main() {
 }
 
 func handleConn(c net.Conn) {
-	defer c.Close()
+    defer c.Close()
 
-	var buf = make([]byte, 4096)
+    var buf = make([]byte, 4096)
 
-	n, err := c.Read(buf)
-	if err != nil {
-		if err != io.EOF {
-			log.Println("Erro ao ler dados:", err)
-		}
-		return
-	}
+    n, err := c.Read(buf)
+    if err != nil {
+        if err != io.EOF {
+            log.Println("Erro ao ler dados:", err)
+        }
+        return
+    }
 
-	log.Printf("Dados recebidos: %s\n", string(buf[:n]))
+    log.Printf("Dados recebidos: %s\n", string(buf[:n]))
 
-	var fileInfo FileInfo
-	err = json.Unmarshal(buf[:n], &fileInfo)
-	if err == nil && (fileInfo.Action == "add" || fileInfo.Action == "delete") {
-		updateFileMap(fileInfo)
-		_, err = c.Write([]byte("Arquivos e hashes atualizados com sucesso\n"))
-		if err != nil {
-			log.Println("Erro ao enviar resposta:", err)
-		}
-		return
-	}
+    // Verificar se é uma solicitação de hash
+    var query HashQuery
+    err = json.Unmarshal(buf[:n], &query)
+    if err == nil && query.Hash != 0 {
+        ips := getIPsForHash(query.Hash)
+        if len(ips) == 0 {
+            c.Write([]byte("Nenhum IP possui esse arquivo\n"))
+            return
+        }
+        
+        response, err := json.Marshal(ips)
+        if err != nil {
+            log.Println("Erro ao serializar resposta:", err)
+            return
+        }
 
-	var query HashQuery
-	err = json.Unmarshal(buf[:n], &query)
-	if err == nil && query.Hash != 0 {
-		ips := getIPsForHash(query.Hash)
-		response, err := json.Marshal(ips)
-		if err != nil {
-			log.Println("Erro ao serializar resposta:", err)
-			return
-		}
-		_, err = c.Write(response)
-		if err != nil {
-			log.Println("Erro ao enviar resposta:", err)
-		}
-		return
-	}
+        // Responder ao cliente com os IPs
+        _, err = c.Write(response)
+        if err != nil {
+            log.Println("Erro ao enviar resposta:", err)
+        }
+        return
+    }
 
-	log.Println("Formato de mensagem desconhecido")
+    log.Println("Formato de mensagem desconhecido")
 }
 
 func updateFileMap(fileInfo FileInfo) {
